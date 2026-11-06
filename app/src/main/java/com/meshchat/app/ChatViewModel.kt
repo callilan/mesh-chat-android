@@ -2,6 +2,7 @@ package com.meshchat.app
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.*
@@ -38,51 +39,73 @@ class ChatViewModel(
 
     init {
         viewModelScope.launch {
-            chatDao.getAllMessages().collect { entities ->
-                _uiMessages.value = entities.map { 
-                    ChatMessage(it.id, it.senderName, it.messageType, it.content, it.timestamp, it.isMine) 
+            try {
+                chatDao.getAllMessages().collect { entities ->
+                    _uiMessages.value = entities.map { 
+                        ChatMessage(it.id, it.senderName, it.messageType, it.content, it.timestamp, it.isMine) 
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Database error: ${e.message}")
             }
         }
 
         meshManager.onMessageReceived = { envelope, _ ->
-            viewModelScope.launch { handleIncomingEnvelope(envelope) }
+            viewModelScope.launch { 
+                try {
+                    handleIncomingEnvelope(envelope) 
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Message handling error: ${e.message}")
+                }
+            }
         }
     }
 
     fun startMesh() {
-        meshManager.startMeshNetwork()
+        try {
+            meshManager.startMeshNetwork()
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Mesh start error: ${e.message}")
+        }
     }
 
     fun sendTextMessage(text: String) {
         if (text.isBlank()) return
         viewModelScope.launch {
-            val dbMsg = ChatMessageEntity(
-                id = UUID.randomUUID().toString(),
-                senderId = meshManager.localNodeId,
-                senderName = "Me",
-                messageType = "TEXT",
-                content = text,
-                timestamp = System.currentTimeMillis(),
-                isMine = true
-            )
-            chatDao.insertMessage(dbMsg)
-            meshManager.sendBroadcast(PayloadType.TEXT, text.toByteArray())
+            try {
+                val dbMsg = ChatMessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    senderId = meshManager.localNodeId,
+                    senderName = "Me",
+                    messageType = "TEXT",
+                    content = text,
+                    timestamp = System.currentTimeMillis(),
+                    isMine = true
+                )
+                chatDao.insertMessage(dbMsg)
+                meshManager.sendBroadcast(PayloadType.TEXT, text.toByteArray())
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Send message error: ${e.message}")
+            }
         }
     }
 
     fun sendImageMessage(uri: Uri) {
         viewModelScope.launch {
-            val (mediaId, chunks, total) = mediaHandler.compressAndChunkImage(uri)
-            
-            meshManager.sendBroadcast(PayloadType.IMAGE_METADATA, mediaId.toByteArray(), mediaId)
-            
-            chunks.forEachIndexed { index, chunk ->
-                meshManager.sendBroadcast(PayloadType.IMAGE_CHUNK, chunk, mediaId, index, total)
+            try {
+                val (mediaId, chunks, total) = mediaHandler.compressAndChunkImage(uri)
+                
+                meshManager.sendBroadcast(PayloadType.IMAGE_METADATA, mediaId.toByteArray(), mediaId)
+                
+                chunks.forEachIndexed { index, chunk ->
+                    meshManager.sendBroadcast(PayloadType.IMAGE_CHUNK, chunk, mediaId, index, total)
+                }
+                
+                val dbMsg = ChatMessageEntity(UUID.randomUUID().toString(), meshManager.localNodeId, "Me", "IMAGE", "Received Image", System.currentTimeMillis(), true)
+                chatDao.insertMessage(dbMsg)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Image send error: ${e.message}")
             }
-            
-            val dbMsg = ChatMessageEntity(UUID.randomUUID().toString(), meshManager.localNodeId, "Me", "IMAGE", mediaId, System.currentTimeMillis(), true)
-            chatDao.insertMessage(dbMsg)
         }
     }
 
@@ -90,16 +113,20 @@ class ChatViewModel(
         if (isRecording) {
             isRecording = false
             viewModelScope.launch {
-                val result = mediaHandler.stopVoiceRecordingAndChunk() ?: return@launch
-                val (mediaId, chunks, total) = result
-                
-                meshManager.sendBroadcast(PayloadType.VOICE_METADATA, mediaId.toByteArray(), mediaId)
-                chunks.forEachIndexed { index, chunk ->
-                    meshManager.sendBroadcast(PayloadType.VOICE_CHUNK, chunk, mediaId, index, total)
+                try {
+                    val result = mediaHandler.stopVoiceRecordingAndChunk() ?: return@launch
+                    val (mediaId, chunks, total) = result
+                    
+                    meshManager.sendBroadcast(PayloadType.VOICE_METADATA, mediaId.toByteArray(), mediaId)
+                    chunks.forEachIndexed { index, chunk ->
+                        meshManager.sendBroadcast(PayloadType.VOICE_CHUNK, chunk, mediaId, index, total)
+                    }
+                    
+                    val dbMsg = ChatMessageEntity(UUID.randomUUID().toString(), meshManager.localNodeId, "Me", "VOICE", "Received Voice", System.currentTimeMillis(), true)
+                    chatDao.insertMessage(dbMsg)
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Voice recording error: ${e.message}")
                 }
-                
-                val dbMsg = ChatMessageEntity(UUID.randomUUID().toString(), meshManager.localNodeId, "Me", "VOICE", mediaId, System.currentTimeMillis(), true)
-                chatDao.insertMessage(dbMsg)
             }
         } else {
             isRecording = true
@@ -110,27 +137,31 @@ class ChatViewModel(
     private suspend fun handleIncomingEnvelope(envelope: MeshEnvelope) {
         if (envelope.senderId == meshManager.localNodeId) return
 
-        when (envelope.payloadType) {
-            PayloadType.TEXT -> {
-                val text = String(envelope.data)
-                val dbMsg = ChatMessageEntity(envelope.messageId, envelope.senderId, "Peer", "TEXT", text, envelope.timestamp, false)
-                chatDao.insertMessage(dbMsg)
-            }
-            PayloadType.IMAGE_CHUNK -> {
-                val fullImage = mediaHandler.reassembleChunk(true, envelope.mediaId, envelope.chunkIndex, envelope.totalChunks, envelope.data)
-                if (fullImage != null) {
-                    val dbMsg = ChatMessageEntity(envelope.mediaId, envelope.senderId, "Peer", "IMAGE", "Received Image", envelope.timestamp, false)
+        try {
+            when (envelope.payloadType) {
+                PayloadType.TEXT -> {
+                    val text = String(envelope.data)
+                    val dbMsg = ChatMessageEntity(envelope.messageId, envelope.senderId, "Peer", "TEXT", text, envelope.timestamp, false)
                     chatDao.insertMessage(dbMsg)
                 }
-            }
-            PayloadType.VOICE_CHUNK -> {
-                val fullAudio = mediaHandler.reassembleChunk(false, envelope.mediaId, envelope.chunkIndex, envelope.totalChunks, envelope.data)
-                if (fullAudio != null) {
-                    val dbMsg = ChatMessageEntity(envelope.mediaId, envelope.senderId, "Peer", "VOICE", "Received Voice", envelope.timestamp, false)
-                    chatDao.insertMessage(dbMsg)
+                PayloadType.IMAGE_CHUNK -> {
+                    val fullImage = mediaHandler.reassembleChunk(true, envelope.mediaId, envelope.chunkIndex, envelope.totalChunks, envelope.data)
+                    if (fullImage != null) {
+                        val dbMsg = ChatMessageEntity(envelope.mediaId, envelope.senderId, "Peer", "IMAGE", "Received Image", envelope.timestamp, false)
+                        chatDao.insertMessage(dbMsg)
+                    }
                 }
+                PayloadType.VOICE_CHUNK -> {
+                    val fullAudio = mediaHandler.reassembleChunk(false, envelope.mediaId, envelope.chunkIndex, envelope.totalChunks, envelope.data)
+                    if (fullAudio != null) {
+                        val dbMsg = ChatMessageEntity(envelope.mediaId, envelope.senderId, "Peer", "VOICE", "Received Voice", envelope.timestamp, false)
+                        chatDao.insertMessage(dbMsg)
+                    }
+                }
+                else -> { /* Handle Metadata, ACKs, Pings */ }
             }
-            else -> { /* Handle Metadata, ACKs, Pings */ }
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Incoming message error: ${e.message}")
         }
     }
 
