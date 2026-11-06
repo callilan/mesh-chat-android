@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
             )
             viewModel = vm
             vm.startMesh()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // If it crashes here, we catch it and show it on screen!
             errorMessage = "Failed to initialize app: ${e.message}"
         }
