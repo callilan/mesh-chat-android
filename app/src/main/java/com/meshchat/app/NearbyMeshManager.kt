@@ -53,7 +53,7 @@ class NearbyMeshManager(private val context: Context) {
         }
 
         override fun onConnectionResult(endpointId: String, result: ConnectionResolution) {
-            when (result.statusCode) {
+            when (result.status.statusCode) {
                 ConnectionsStatusCodes.STATUS_OK -> {
                     connectedEndpoints.add(endpointId)
                     activePeersFlow.value = connectedEndpoints.toList()
