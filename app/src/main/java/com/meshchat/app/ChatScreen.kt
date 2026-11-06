@@ -5,9 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,20 +19,15 @@ fun ChatScreen(viewModel: ChatViewModel) {
     val messages by viewModel.uiMessages.collectAsState()
     val peers by viewModel.activePeers.collectAsState()
     var textInput by remember { mutableStateOf("") }
-    var isRecording by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Mesh Chat (Offline)") },
-                subtitle = { Text("Connected Peers: ${peers.size}") }
-            )
+            TopAppBar(title = { Text("Mesh Chat - ${peers.size} peers") })
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(8.dp),
-                reverseLayout = false
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(8.dp)
             ) {
                 items(messages) { msg ->
                     MessageBubble(msg)
@@ -47,26 +40,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 modifier = Modifier.fillMaxWidth().padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { /* Trigger Image Picker */ }) {
-                    Icon(Icons.Filled.Image, contentDescription = "Image")
-                }
-                
-                IconButton(onClick = { 
-                    isRecording = !isRecording
-                    viewModel.toggleVoiceRecording() 
-                }) {
-                    Icon(
-                        Icons.Filled.Mic, 
-                        contentDescription = "Voice",
-                        tint = if (isRecording) Color.Red else MaterialTheme.colorScheme.primary
-                    )
-                }
-
                 TextField(
                     value = textInput,
                     onValueChange = { textInput = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...") }
+                    placeholder = { Text("Message...") }
                 )
 
                 IconButton(onClick = { 
@@ -86,7 +64,10 @@ fun MessageBubble(message: ChatMessage) {
     val alignment = if (isMine) Alignment.End else Alignment.Start
     val bgColor = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
 
-    Column(modifier = Modifier.fillMaxWidth().padding(4.dp), horizontalAlignment = alignment) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(4.dp),
+        horizontalAlignment = alignment
+    ) {
         Text(text = message.senderName, style = MaterialTheme.typography.labelSmall)
         Surface(
             shape = RoundedCornerShape(12.dp),
