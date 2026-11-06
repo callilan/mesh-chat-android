@@ -32,10 +32,9 @@ class ChatViewModel(
 
     private val _uiMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val uiMessages: StateFlow<List<ChatMessage>> = _uiMessages.asStateFlow()
-    val activePeers = meshManager.activePeersFlow
+    val activePeers = MutableStateFlow<List<String>>(emptyList()) // Dummy list for Safe Mode
 
     init {
-        // 1. Load existing messages from Database
         viewModelScope.launch {
             try {
                 chatDao.getAllMessages().collect { entities ->
@@ -47,47 +46,19 @@ class ChatViewModel(
                 Log.e("ChatViewModel", "DB Error: ${e.message}")
             }
         }
-
-        // 2. Listen for incoming Bluetooth messages
-        meshManager.onMessageReceived = { envelope, _ ->
-            viewModelScope.launch { 
-                try {
-                    if (envelope.payloadType == PayloadType.TEXT) {
-                        val text = String(envelope.data)
-                        val dbMsg = ChatMessageEntity(
-                            id = envelope.messageId,
-                            senderId = envelope.senderId,
-                            senderName = "Peer",
-                            messageType = "TEXT",
-                            content = text,
-                            timestamp = envelope.timestamp,
-                            isMine = false
-                        )
-                        chatDao.insertMessage(dbMsg)
-                    }
-                } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Receive Error: ${e.message}")
-                }
-            }
-        }
     }
 
     fun startMesh() {
-        try {
-            meshManager.startMeshNetwork()
-        } catch (e: Exception) {
-            Log.e("ChatViewModel", "Mesh Start Error: ${e.message}")
-        }
+        // Bluetooth disabled for Safe Mode
     }
 
     fun sendTextMessage(text: String) {
         if (text.isBlank()) return
         viewModelScope.launch {
             try {
-                // 1. Save to local database first
                 val dbMsg = ChatMessageEntity(
                     id = UUID.randomUUID().toString(),
-                    senderId = meshManager.localNodeId,
+                    senderId = "Me",
                     senderName = "Me",
                     messageType = "TEXT",
                     content = text,
@@ -95,9 +66,7 @@ class ChatViewModel(
                     isMine = true
                 )
                 chatDao.insertMessage(dbMsg)
-                
-                // 2. Broadcast over Bluetooth
-                meshManager.sendBroadcast(PayloadType.TEXT, text.toByteArray())
+                // meshManager.sendBroadcast(...) // DISABLED FOR SAFE MODE
                 
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Send Error: ${e.message}")
@@ -105,11 +74,6 @@ class ChatViewModel(
         }
     }
 
-    fun sendImageMessage(uri: Uri) { /* Placeholder for future */ }
-    fun toggleVoiceRecording() { /* Placeholder for future */ }
-
-    override fun onCleared() {
-        super.onCleared()
-        try { meshManager.stopMeshNetwork() } catch (e: Exception) {}
-    }
+    fun sendImageMessage(uri: Uri) { }
+    fun toggleVoiceRecording() { }
 }
