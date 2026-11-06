@@ -64,7 +64,9 @@ class MainActivity : ComponentActivity() {
                 applicationContext,
                 ChatDatabase::class.java,
                 "chat-db"
-            ).build()
+            )
+.fallbackToDestructiveMigration()
+.build()
 
             val vm = ChatViewModel(
                 applicationContext,
