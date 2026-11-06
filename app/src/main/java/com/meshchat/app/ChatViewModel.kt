@@ -2,6 +2,7 @@ package com.meshchat.app
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.*
@@ -9,7 +10,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-// We keep these definitions so the app compiles, even if we don't use them right now
 @Dao
 interface ChatDao {
     @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
@@ -23,7 +23,6 @@ abstract class ChatDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 }
 
-// This is the DUMMY ViewModel. It ignores the database and bluetooth for this test.
 class ChatViewModel(
     private val context: Context,
     val meshManager: NearbyMeshManager,
@@ -33,34 +32,46 @@ class ChatViewModel(
 
     private val _uiMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val uiMessages: StateFlow<List<ChatMessage>> = _uiMessages.asStateFlow()
-    
-    // Dummy peer list so the UI doesn't crash
     val activePeers = MutableStateFlow<List<String>>(emptyList())
 
+    init {
+        viewModelScope.launch {
+            try {
+                chatDao.getAllMessages().collect { entities ->
+                    _uiMessages.value = entities.map { 
+                        ChatMessage(it.id, it.senderName, it.messageType, it.content, it.timestamp, it.isMine) 
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "DB Collect Error: ${e.message}")
+            }
+        }
+    }
+
     fun startMesh() {
-        // Do nothing for this test
+        // Bluetooth is still off for this test
     }
 
     fun sendTextMessage(text: String) {
         if (text.isBlank()) return
-        
-        // Just add it to the list in memory. No DB, No Bluetooth.
-        val newMsg = ChatMessage(
-            id = UUID.randomUUID().toString(),
-            senderName = "Me",
-            messageType = "TEXT",
-            content = text,
-            timestamp = System.currentTimeMillis(),
-            isMine = true
-        )
-        
-        _uiMessages.value = _uiMessages.value + newMsg
+        viewModelScope.launch {
+            try {
+                val dbMsg = ChatMessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    senderId = "Me",
+                    senderName = "Me",
+                    messageType = "TEXT",
+                    content = text,
+                    timestamp = System.currentTimeMillis(),
+                    isMine = true
+                )
+                chatDao.insertMessage(dbMsg)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Send Error: ${e.message}")
+            }
+        }
     }
 
-    fun sendImageMessage(uri: Uri) { /* Do nothing */ }
-    fun toggleVoiceRecording() { /* Do nothing */ }
-
-    override fun onCleared() {
-        super.onCleared()
-    }
+    fun sendImageMessage(uri: Uri) { }
+    fun toggleVoiceRecording() { }
 }
