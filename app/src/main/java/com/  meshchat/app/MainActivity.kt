@@ -38,7 +38,6 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     if (errorMessage != null) {
-                        // This shows the error on screen instead of crashing!
                         Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                             Text(
                                 text = "APP ERROR:\n\n$errorMessage", 
@@ -50,7 +49,7 @@ class MainActivity : ComponentActivity() {
                         ChatScreen(viewModel!!)
                     } else {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            Text(text = "Initializing Mesh Network...", modifier = Modifier.padding(16.dp))
+                            Text(text = "Initializing...", modifier = Modifier.padding(16.dp))
                         }
                     }
                 }
@@ -65,8 +64,8 @@ class MainActivity : ComponentActivity() {
                 ChatDatabase::class.java,
                 "chat-db"
             )
-.fallbackToDestructiveMigration()
-.build()
+            .fallbackToDestructiveMigration()
+            .build()
 
             val vm = ChatViewModel(
                 applicationContext,
@@ -75,9 +74,9 @@ class MainActivity : ComponentActivity() {
                 db.chatDao()
             )
             viewModel = vm
-            vm.startMesh()
+            // vm.startMesh() // DISABLED FOR SAFE MODE
+            
         } catch (e: Throwable) {
-            // If it crashes here, we catch it and show it on screen!
             errorMessage = "Failed to initialize app: ${e.message}"
         }
     }
