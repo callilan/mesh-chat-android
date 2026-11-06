@@ -17,8 +17,9 @@ import androidx.room.Room
 
 class MainActivity : ComponentActivity() {
 
+    // FIX: Added 'by mutableStateOf' so the screen updates instantly when this changes!
     private var errorMessage by mutableStateOf<String?>(null)
-    private var viewModel: ChatViewModel? = null
+    private var viewModel by mutableStateOf<ChatViewModel?>(null)
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -32,10 +33,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestPermissions()
-
+        
+        // We call setContent FIRST now to prevent the hang
         setContent {
-            MaterialTheme {
+            // DARK THEME ENABLED HERE
+            MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     if (errorMessage != null) {
                         Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -49,12 +51,15 @@ class MainActivity : ComponentActivity() {
                         ChatScreen(viewModel!!)
                     } else {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            Text(text = "Initializing...", modifier = Modifier.padding(16.dp))
+                            Text(text = "Initializing Mesh Network...", modifier = Modifier.padding(16.dp))
                         }
                     }
                 }
             }
         }
+        
+        // Now we ask for permissions
+        requestPermissions()
     }
 
     private fun initViewModelAndStart() {
@@ -74,7 +79,7 @@ class MainActivity : ComponentActivity() {
                 db.chatDao()
             )
             viewModel = vm
-            // vm.startMesh() // DISABLED FOR SAFE MODE
+            // vm.startMesh() // Still disabled for stability
             
         } catch (e: Throwable) {
             errorMessage = "Failed to initialize app: ${e.message}"
