@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.collectAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +48,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { /* Trigger Image Picker */ }) {
-                    Icon(Icons.Default.Image, contentDescription = "Image")
+                    Icon(Icons.Filled.Image, contentDescription = "Image")
                 }
                 
                 IconButton(onClick = { 
@@ -57,7 +56,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     viewModel.toggleVoiceRecording() 
                 }) {
                     Icon(
-                        Icons.Default.Mic, 
+                        Icons.Filled.Mic, 
                         contentDescription = "Voice",
                         tint = if (isRecording) Color.Red else MaterialTheme.colorScheme.primary
                     )
@@ -74,7 +73,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     viewModel.sendTextMessage(textInput)
                     textInput = "" 
                 }) {
-                    Icon(Icons.Default.Send, contentDescription = "Send")
+                    Icon(Icons.Filled.Send, contentDescription = "Send")
                 }
             }
         }
@@ -84,7 +83,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
 @Composable
 fun MessageBubble(message: ChatMessage) {
     val isMine = message.isMine
-    val alignment = if (isMine) Alignment.CenterEnd else Alignment.CenterStart
+    val alignment = if (isMine) Alignment.End else Alignment.Start
     val bgColor = if (isMine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
 
     Column(modifier = Modifier.fillMaxWidth().padding(4.dp), horizontalAlignment = alignment) {
