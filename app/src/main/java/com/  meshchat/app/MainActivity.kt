@@ -17,7 +17,6 @@ import androidx.room.Room
 
 class MainActivity : ComponentActivity() {
 
-    // FIX: Added 'by mutableStateOf' so the screen updates instantly when this changes!
     private var errorMessage by mutableStateOf<String?>(null)
     private var viewModel by mutableStateOf<ChatViewModel?>(null)
 
@@ -34,9 +33,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // We call setContent FIRST now to prevent the hang
         setContent {
-            // DARK THEME ENABLED HERE
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     if (errorMessage != null) {
@@ -58,7 +55,6 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        // Now we ask for permissions
         requestPermissions()
     }
 
@@ -79,7 +75,13 @@ class MainActivity : ComponentActivity() {
                 db.chatDao()
             )
             viewModel = vm
-            // vm.startMesh() // Still disabled for stability
+            
+            // SAFETY NET: Catch Bluetooth startup errors
+            try {
+                vm.startMesh()
+            } catch (e: Throwable) {
+                errorMessage = "Bluetooth failed to start: ${e.message}"
+            }
             
         } catch (e: Throwable) {
             errorMessage = "Failed to initialize app: ${e.message}"
